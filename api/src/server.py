@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import FastAPI, HTTPException, UploadFile, Header, Request
+from fastapi import FastAPI, HTTPException, UploadFile, Header, status
 import os
 from pydantic import BaseModel
 from pathlib import Path
@@ -19,7 +19,7 @@ file_handler = FileHandler(DOCUMENTS_DIR)
 vector_store = VectorStore(persist_directory="./chroma_langchain_db")
 document_store = DocumentStore()
 
-@app.post("/documents")
+@app.post("/documents", status_code=status.HTTP_201_CREATED)
 async def post_documents(file: UploadFile, session_id: Annotated[str | None, Header()] = None):
     try:
         if not file.filename.endswith('.pdf'):
@@ -59,7 +59,7 @@ async def delete_documents(session_id: Annotated[str | None, Header()] = None):
         
         deleted_count = document_store.delete_documents(session_id)
         
-        return {"message": f"Successfully deleted {deleted_count} documents"}, 200
+        return {"message": f"Successfully deleted {deleted_count} documents"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -124,6 +124,7 @@ def main():
                     success = upload_document(uploaded_file)
                     if success:
                         st.session_state.documents = fetch_documents()
+                        st.rerun()
 
         st.subheader("Available Documents")
         if st.button("Refresh Documents", use_container_width=True):
@@ -143,6 +144,7 @@ def main():
                     success = delete_all_documents()
                     if success:
                         st.session_state.documents = []
+                        st.rerun()
             else:
                 st.warning("No documents to delete.")
 
