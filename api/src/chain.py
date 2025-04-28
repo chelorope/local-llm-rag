@@ -1,7 +1,3 @@
-"""This is a template for a custom chain.
-
-Edit this file to implement your chain logic.
-"""
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.tools import tool
 from langchain_ollama import ChatOllama
@@ -32,16 +28,6 @@ class Joke(BaseModel):
     """Understand joke"""
     setup: str = Field(description="question to set up a joke")
     punchline: str = Field(description="answer to resolve the joke")
-
-# @tool
-# def get_joke(setup: str, punchline: str) -> bool:
-#     """Understand joke
-
-#     Args:
-#         setup (str): The setup for the joke.
-#         punchline (str): The punchline for the joke.
-#     """
-#     return True
 
 def get_chain() -> Runnable:
     """Return a chain that generates jokes based on a topic."""

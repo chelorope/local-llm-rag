@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 
 import requests
 import streamlit as st
+import uuid
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
@@ -18,14 +19,20 @@ if "conversation_id" not in st.session_state:
     st.session_state.conversation_id = None
 if "documents" not in st.session_state:
     st.session_state.documents = []
+if "session_id" not in st.session_state:
+    st.session_state.session_id = uuid.uuid4().hex
 
+requests_session = requests.Session()
+requests_session.headers.update(
+    { "session-id": st.session_state["session_id"] }
+)
 
 def fetch_documents() -> List[str]:
     """
     Get the list of names of the documents
     """
     try:
-        response = requests.get(f"{API_URL}/documents")
+        response = requests_session.get(f"{API_URL}/documents")
         if response.status_code == 200:
             return response.json()["documents"]
         else:
@@ -40,7 +47,7 @@ def upload_document(file) -> bool:
     """Upload a document to the API."""
     try:
         files = {"file": (file.name, file, "application/pdf")}
-        response = requests.post(f"{API_URL}/documents", files=files)
+        response = requests_session.post(f"{API_URL}/documents", files=files)
         if response.status_code == 201:
             st.success("Document uploaded successfully!")
             return True
@@ -55,7 +62,7 @@ def upload_document(file) -> bool:
 def delete_all_documents() -> bool:
     """Delete all documents from the collection."""
     try:
-        response = requests.delete(f"{API_URL}/documents")
+        response = requests_session.delete(f"{API_URL}/documents")
         if response.status_code == 200:
             st.success("All documents deleted successfully!")
             return True
@@ -68,10 +75,9 @@ def delete_all_documents() -> bool:
 
 
 def get_messages():
-    response = requests.get(f"{API_URL}/messages")
+    response = requests_session.get(f"{API_URL}/messages")
     if response.status_code == 200:
         data = response.json()
-
         return [{"content": d["content"], "role": d["role"]} for d in data["messages"]]
 
 
@@ -82,7 +88,7 @@ def send_message(message: str) -> Optional[Dict[str, Any]]:
             "message": message,
         }
 
-        response = requests.post(f"{API_URL}/chat", json=payload)
+        response = requests_session.post(f"{API_URL}/chat", json=payload)
 
         if response.status_code == 200:
             data = response.json()

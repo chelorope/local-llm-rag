@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app
+      - ./documents:/app/documents
+      - ./chroma_langchain_db:/app/chroma_langchain_db
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
+      - MONGO_DB_NAME=documents_db
+      - MONGO_COLLECTION_NAME=documents
+      - DOCUMENTS_DIR=/app/documents
+    depends_on:
+      - mongodb
+      - chroma
+
+  ui:
+    build:
+      context: .
+      dockerfile: ui/Dockerfile
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./ui:/app
+    environment:
+      - API_URL=http://api:8000
+    depends_on:
+      - api
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - "3020:3020"
+    volumes:
+      - chroma_data:/chroma/data
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=3020
+
+volumes:
+  mongodb_data:
+  chroma_data:
