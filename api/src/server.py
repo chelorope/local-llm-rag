@@ -66,9 +66,23 @@ async def post_documents(file: UploadFile, session_id: Annotated[str | None, Hea
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.delete("/documents")
-async def delete_documents():
-    # Placeholder for delete functionality
-    return {"message": "Delete functionality not implemented."}
+async def delete_documents(session_id: Annotated[str | None, Header()] = None):
+    try:
+        documents = list(collection.find({"session_id": session_id}))
+        
+        for doc in documents:
+            file_path = Path(doc["file_path"])
+            if file_path.exists():
+                file_path.unlink()
+            
+            if "document_splits" in doc:
+                vector_store.delete(doc["document_splits"])
+        
+        result = collection.delete_many({"session_id": session_id})
+        
+        return {"message": f"Successfully deleted {result.deleted_count} documents"}, 200
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/documents")
 async def get_documents(session_id: Annotated[str | None, Header()] = None):
