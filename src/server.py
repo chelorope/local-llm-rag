@@ -1,23 +1,32 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile
 from pydantic import BaseModel
+from pathlib import Path
+import uuid
 
-from src.chain import get_chain
+from src.chain import get_chain, Joke
 
 app = FastAPI(title="Joke Generator API")
 
 class JokeRequest(BaseModel):
     topic: str
 
-class JokeResponse(BaseModel):
-    setup: str
-    punchline: str
-
-@app.post("/documents", response_model=JokeResponse)
-async def generate_joke(request: JokeRequest):
+@app.post("/documents")
+async def post_documents(file: UploadFile):
     try:
-        chain = get_chain()
-        result = chain.invoke({"topic": request.topic})
-        return JokeResponse(**result)
+        if not file.filename.endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="Only PDF files are supported")
+        
+        documents_dir = Path("documents")
+        documents_dir.mkdir(exist_ok=True)
+        
+        filename = f"{uuid.uuid4()}.pdf"
+        file_path = documents_dir / filename
+        
+        content = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(content)
+        
+        return {"message": "Document uploaded successfully", "filename": filename}, 201
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
@@ -29,12 +38,12 @@ async def delete_documents():
 @app.get("/documents")
 async def get_documents():
     # Placeholder for get functionality
-    return {"message": "Get functionality not implemented."}
+    return {"documents": []}
 
 @app.get("/messages")
 async def get_messages():
     # Placeholder for get messages functionality
-    return {"message": "Get messages functionality not implemented."}
+    return {"messages": []}
 
 @app.delete("/messages")
 async def delete_messages():
