@@ -4,9 +4,11 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from fastapi import FastAPI, HTTPException, UploadFile, Header, Request
+from pymongo import MongoClient
+import os
 from pydantic import BaseModel
 from pathlib import Path
-from config.settings import DOCUMENTS_DIR
+from config.settings import DOCUMENTS_DIR, MONGO_URI, MONGO_DB_NAME, MONGO_DOCUMENTS_COLLECTION_NAME
 import uuid
 
 from src.chain import get_chain
@@ -25,6 +27,9 @@ vector_store = Chroma(
 )
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
+mongo_client = MongoClient(MONGO_URI)
+db = mongo_client[MONGO_DB_NAME]
+collection = db[MONGO_DOCUMENTS_COLLECTION_NAME]
 
 @app.post("/documents")
 async def post_documents(file: UploadFile, session_id: Annotated[str | None, Header()] = None):
@@ -32,9 +37,7 @@ async def post_documents(file: UploadFile, session_id: Annotated[str | None, Hea
         if not file.filename.endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are supported")
         
-        document_id = str(uuid.uuid4())
-        filename = f"{document_id}.pdf"
-        file_path = documents_dir / filename
+        file_path = documents_dir / f"{uuid.uuid4().hex}.pdf"
         
         content = await file.read()
         with open(file_path, "wb") as f:
@@ -45,9 +48,20 @@ async def post_documents(file: UploadFile, session_id: Annotated[str | None, Hea
         async for page in loader.alazy_load():
             pages.append(page)
         document_splits = text_splitter.split_documents(pages)
-        print(f"Document splits: {document_splits}")
-        vector_store.add_documents(documents=document_splits)
-        return {"message": "Document uploaded successfully", "id": document_id}, 201
+        splits_ids = vector_store.add_documents(documents=document_splits)
+        print(f"Document splits: {splits_ids}")
+
+        # Create document entry
+        document_entry = {
+            "file_path": str(file_path),
+            "filename": file.filename,
+            "document_splits": splits_ids,
+            "session_id": session_id
+        }
+        
+        # Insert into MongoDB
+        document_id = collection.insert_one(document_entry).inserted_id
+        return {"message": "Document uploaded successfully", "id": str(document_id)}, 201
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     

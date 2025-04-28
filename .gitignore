@@ -1,5 +1,6 @@
 # Project
-documents
+api/documents
+api/chroma_langchain_db/
 
 # Python
 __pycache__/
