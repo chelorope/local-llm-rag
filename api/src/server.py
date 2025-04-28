@@ -1,35 +1,23 @@
 from typing import Annotated
-from langchain_chroma import Chroma
-from langchain_ollama import OllamaEmbeddings
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from fastapi import FastAPI, HTTPException, UploadFile, Header, Request
-from pymongo import MongoClient
 import os
 from pydantic import BaseModel
 from pathlib import Path
-from config.settings import DOCUMENTS_DIR, MONGO_URI, MONGO_DB_NAME, MONGO_DOCUMENTS_COLLECTION_NAME
-import uuid
+from config.settings import DOCUMENTS_DIR
 
 from src.chain import get_chain
+from src.file_handler import FileHandler
+from src.vector_store import VectorStore
+from src.document_store import DocumentStore
 
 class ChatRequest(BaseModel):
     message: str
 
 app = FastAPI(title="Joke Generator API")
 
-documents_dir = Path(DOCUMENTS_DIR)
-embeddings = OllamaEmbeddings(model="llama3.2")
-vector_store = Chroma(
-    collection_name="example_collection",
-    embedding_function=embeddings,
-    persist_directory="./chroma_langchain_db",
-)
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-
-mongo_client = MongoClient(MONGO_URI)
-db = mongo_client[MONGO_DB_NAME]
-collection = db[MONGO_DOCUMENTS_COLLECTION_NAME]
+file_handler = FileHandler(DOCUMENTS_DIR)
+vector_store = VectorStore(persist_directory="./chroma_langchain_db")
+document_store = DocumentStore()
 
 @app.post("/documents")
 async def post_documents(file: UploadFile, session_id: Annotated[str | None, Header()] = None):
@@ -37,31 +25,22 @@ async def post_documents(file: UploadFile, session_id: Annotated[str | None, Hea
         if not file.filename.endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are supported")
         
-        file_path = documents_dir / f"{uuid.uuid4().hex}.pdf"
-        
         content = await file.read()
-        with open(file_path, "wb") as f:
-            f.write(content)
+        file_path = await file_handler.save_file(content, extension="pdf")
 
-        loader = PyPDFLoader(file_path)
-        pages = []
-        async for page in loader.alazy_load():
-            pages.append(page)
-        document_splits = text_splitter.split_documents(pages)
-        splits_ids = vector_store.add_documents(documents=document_splits)
+        # Add document to vector store
+        splits_ids = await vector_store.add_document(file_path)
         print(f"Document splits: {splits_ids}")
 
-        # Create document entry
-        document_entry = {
-            "file_path": str(file_path),
-            "filename": file.filename,
-            "document_splits": splits_ids,
-            "session_id": session_id
-        }
+        # Add document to MongoDB through DocumentStore
+        document_id = document_store.add_document(
+            file_path=file_path,
+            filename=file.filename,
+            splits_ids=splits_ids,
+            session_id=session_id
+        )
         
-        # Insert into MongoDB
-        document_id = collection.insert_one(document_entry).inserted_id
-        return {"message": "Document uploaded successfully", "id": str(document_id)}, 201
+        return {"message": "Document uploaded successfully", "id": document_id}, 201
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
@@ -69,19 +48,18 @@ async def post_documents(file: UploadFile, session_id: Annotated[str | None, Hea
 async def delete_documents(session_id: Annotated[str | None, Header()] = None):
     try:
         print(f"Deleting documents for session: {session_id}")
-        documents = list(collection.find({"session_id": session_id}))
+        documents = document_store.get_documents(session_id)
         
         for doc in documents:
             file_path = Path(doc["file_path"])
-            if file_path.exists():
-                file_path.unlink()
+            file_handler.delete_file(file_path)
             
             if "document_splits" in doc:
-                vector_store.delete(doc["document_splits"])
+                vector_store.delete_documents(doc["document_splits"])
         
-        result = collection.delete_many({"session_id": session_id})
+        deleted_count = document_store.delete_documents(session_id)
         
-        return {"message": f"Successfully deleted {result.deleted_count} documents"}, 200
+        return {"message": f"Successfully deleted {deleted_count} documents"}, 200
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -89,9 +67,7 @@ async def delete_documents(session_id: Annotated[str | None, Header()] = None):
 async def get_documents(session_id: Annotated[str | None, Header()] = None):
     print(f"Getting documents for session: {session_id}")
     try:
-        documents = list(collection.find({"session_id": session_id}))
-        document_names = [doc["filename"] for doc in documents]
-        print(f"Documents: {document_names}")
+        document_names = document_store.get_document_names(session_id)
         return {"documents": document_names}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -117,7 +93,6 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
     return {"message": "Chat functionality not implemented."}
     
-
 
 if __name__ == "__main__":
     import uvicorn

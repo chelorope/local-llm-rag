@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DOCUMENTS_DIR = "documents"
-os.makedirs(DOCUMENTS_DIR, exist_ok=True)
 
 # MongoDB
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
