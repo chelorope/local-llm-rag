@@ -1,7 +1,6 @@
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.tools import tool
 from langchain_ollama import ChatOllama
-from langchain.chat_models.openai import ChatOpenAI
 from langchain.output_parsers.openai_functions import JsonOutputFunctionsParser
 from langchain.prompts.chat import ChatPromptTemplate
 from langchain.schema.runnable import Runnable

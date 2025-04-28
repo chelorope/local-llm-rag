@@ -68,6 +68,7 @@ async def post_documents(file: UploadFile, session_id: Annotated[str | None, Hea
 @app.delete("/documents")
 async def delete_documents(session_id: Annotated[str | None, Header()] = None):
     try:
+        print(f"Deleting documents for session: {session_id}")
         documents = list(collection.find({"session_id": session_id}))
         
         for doc in documents:
@@ -86,9 +87,14 @@ async def delete_documents(session_id: Annotated[str | None, Header()] = None):
 
 @app.get("/documents")
 async def get_documents(session_id: Annotated[str | None, Header()] = None):
-    
-    # Placeholder for get functionality
-    return {"documents": []}
+    print(f"Getting documents for session: {session_id}")
+    try:
+        documents = list(collection.find({"session_id": session_id}))
+        document_names = [doc["filename"] for doc in documents]
+        print(f"Documents: {document_names}")
+        return {"documents": document_names}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/messages")
 async def get_messages():
