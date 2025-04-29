@@ -16,11 +16,11 @@ This project implements a full-stack RAG system with the following components:
 
 - [Docker](https://www.docker.com/get-started) and Docker Compose
 
-## Running the app in Docker
+## Running in Docker
 
 This section explains how to run the app using conteinarized services
 
-### Usage
+### Installation
 
 1. Clone this repository:
 
@@ -29,13 +29,15 @@ git clone <repository-url>
 cd local-llm-rag
 ```
 
-2. Start the application:
+### Run
+
+1. Start the application:
 
 ```
 docker-compose up --build
 ```
 
-## Running the app locally
+## Running locally
 
 This section explains how to run the API and UI components locally while using containerized MongoDB and ChromaDB.
 
@@ -63,29 +65,40 @@ poetry install
 cd ..
 ```
 
-4. Start MongoDB and ChromaDB containers:
+4. Install Ollama and pull required models:
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull the required models
+ollama pull llama2
+ollama pull nomic-embed-text
+```
+
+### Run
+
+1. Start MongoDB and ChromaDB containers:
 
 ```bash
 docker-compose up mongodb chroma --build
 ```
 
-### Usage
-
-1. Start the API server:
+2. Start the API server:
 
 ```bash
 cd api
 poetry run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-2. Start the UI server (in another terminal):
+3. Start the UI server (in another terminal):
 
 ```bash
 cd ui
 poetry run streamlit run src/app.py
 ```
 
-3. Access the application:
+4. Access the application:
    - Web UI: <http://localhost:8501>
    - API Documentation: <http://localhost:8000/docs>
 
@@ -100,8 +113,6 @@ Note: Make sure you have Ollama installed and running locally with your desired 
 3. Ask questions about your documents in the chat interface
 
 4. Start a new conversation or delete documents as needed using the sidebar controls
-
-## Run
 
 ## Project Structure
 
