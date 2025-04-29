@@ -3,7 +3,8 @@ from typing import Any, Dict, List, Optional
 
 import requests
 import streamlit as st
-import uuid
+from streamlit_cookies_controller import CookieController
+from uuid import uuid4
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
@@ -13,19 +14,23 @@ st.set_page_config(
     layout="wide",
 )
 
+cookie_controller = CookieController()
+session_id = cookie_controller.get("session_id")
+if "first_run" in st.session_state and session_id == None:
+    session_id = uuid4().hex
+    cookie_controller.set("session_id", session_id)
+
+requests_session = requests.Session()
+requests_session.headers.update(
+    { "session-id": session_id }
+)
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "conversation_id" not in st.session_state:
     st.session_state.conversation_id = None
 if "documents" not in st.session_state:
     st.session_state.documents = []
-if "session_id" not in st.session_state:
-    st.session_state.session_id = uuid.uuid4().hex
-
-requests_session = requests.Session()
-requests_session.headers.update(
-    { "session-id": st.session_state["session_id"] }
-)
 
 def fetch_documents() -> List[str]:
     """
@@ -41,7 +46,6 @@ def fetch_documents() -> List[str]:
     except Exception as e:
         st.error(f"Error connecting to API: {str(e)}")
         return []
-
 
 def upload_document(file) -> bool:
     """Upload a document to the API."""
@@ -110,6 +114,7 @@ def display_chat_message(message: Dict[str, Any]):
         with st.chat_message("assistant"):
             st.write(message["content"])
 
+st.session_state.documents = fetch_documents()
 
 def main():
     """Main function to run the Streamlit app."""
@@ -117,7 +122,7 @@ def main():
     with st.sidebar:
         st.header("Document Management")
         st.subheader("Upload Document")
-        uploaded_file = st.file_uploader("Choose a PDF file", type=["pdf"])
+        uploaded_file = st.file_uploader("Choose a PDF file", type=["pdf"], key="file_uploader")
         if uploaded_file is not None:
             if st.button("Upload"):
                 with st.spinner("Uploading and processing document..."):
@@ -168,9 +173,8 @@ def main():
             print("response", response)
             display_chat_message(response)
 
-    if not st.session_state.documents:
-        st.session_state.documents = fetch_documents()
-
+    if not "first_run" in st.session_state:
+        st.session_state.first_run = True
 
 if __name__ == "__main__":
     main()

@@ -1032,6 +1032,24 @@ watchdog = {version = ">=2.1.5,<7", markers = "platform_system != \"Darwin\""}
 snowflake = ["snowflake-connector-python (>=3.3.0) ; python_version < \"3.12\"", "snowflake-snowpark-python[modin] (>=1.17.0) ; python_version < \"3.12\""]
 
 [[package]]
+name = "streamlit-cookies-controller"
+version = "0.0.4"
+description = "Streamlit cookies controller"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "streamlit-cookies-controller-0.0.4.tar.gz", hash = "sha256:f5df2543de858f1585dcb6e90f58f38aafbf313ee8e237c64663b2d9761583cc"},
+    {file = "streamlit_cookies_controller-0.0.4-py3-none-any.whl", hash = "sha256:f97fec6acdeee9cb9e16da25c3fc91d404b5b0ddced87c1d9fa9c62f65ca3251"},
+]
+
+[package.dependencies]
+streamlit = ">=0.63"
+
+[package.extras]
+devel = ["playwright (==1.39.0)", "pytest (==7.4.0)", "pytest-playwright-snapshot (==1.0)", "pytest-rerunfailures (==12.0)", "requests (==2.31.0)", "wheel"]
+
+[[package]]
 name = "tenacity"
 version = "9.1.2"
 description = "Retry code until it succeeds"
@@ -1169,4 +1187,4 @@ watchmedo = ["PyYAML (>=3.10)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "41da3468c52b6fcbd984126909c674c99544131c530cd9283eaec5998134c87f"
+content-hash = "8750aa82faff5dc37300e6528ad70b4d42383aa0dfe06ea5e6211fce634faa0d"
