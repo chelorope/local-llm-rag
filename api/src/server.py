@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from pathlib import Path
 from config.settings import DOCUMENTS_DIR
 
-from src.chain import get_chain
+from src.chain import get_pdf_rag_chain
 from src.file_handler import FileHandler
 from src.vector_store import VectorStore
 from src.document_store import DocumentStore
@@ -29,7 +29,7 @@ async def post_documents(file: UploadFile, session_id: Annotated[str | None, Hea
         file_path = await file_handler.save_file(content, extension="pdf")
 
         # Add document to vector store
-        splits_ids = await vector_store.add_document(file_path)
+        splits_ids = await vector_store.add_document(file_path, session_id=session_id)
         print(f"Document splits: {splits_ids}")
 
         # Add document to MongoDB through DocumentStore
@@ -83,15 +83,15 @@ async def delete_messages():
     return {"message": "Delete messages functionality not implemented."}
 
 @app.post("/chat")
-async def chat(request: ChatRequest):
-    message = request.model_dump_json()['message']
-    chain = get_chain()
+async def chat(request: ChatRequest, session_id: Annotated[str | None, Header()] = None):
+    message = request.message
+    chain = get_pdf_rag_chain()
     try:
-        response = chain.invoke({"text": message})
-        return {"response": response}
+        response = chain.invoke({"question": message, "session_id": session_id})
+        print("response", response)
+        return {"role": "assistant", "content": response.content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    return {"message": "Chat functionality not implemented."}
     
 
 if __name__ == "__main__":

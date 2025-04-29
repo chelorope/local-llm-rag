@@ -3,34 +3,69 @@ from langchain_core.tools import tool
 from langchain_ollama import ChatOllama
 from langchain.output_parsers.openai_functions import JsonOutputFunctionsParser
 from langchain.prompts.chat import ChatPromptTemplate
-from langchain.schema.runnable import Runnable
-from typing import Dict, Any
+from langchain.schema.runnable import Runnable, RunnableLambda
+from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
+from src.vector_store import VectorStore
 
-joke_func = {
-    "name": "joke",
-    "description": "A joke",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "setup": {"type": "string", "description": "The setup for the joke"},
-            "punchline": {
-                "type": "string",
-                "description": "The punchline for the joke",
-            },
-        },
-        "required": ["setup", "punchline"],
-    },
-}
 
-class Joke(BaseModel):
-    """Understand joke"""
-    setup: str = Field(description="question to set up a joke")
-    punchline: str = Field(description="answer to resolve the joke")
+class PDFAssistant:
+    def __init__(self, persist_directory="./chroma_langchain_db", model_name="llama3.2"):
+        """Initialize the PDF Assistant with vector store and model configuration."""
+        self.vector_store = VectorStore(persist_directory=persist_directory)
+        self.model_name = model_name
+        
+    def _get_context(self, inputs):
+        """Retrieve relevant context from vector store based on question."""
+        question = inputs["question"]
+        session_id = inputs.get("session_id")
+        
+        # Search documents with session_id filter
+        docs = self.vector_store.search_documents(question, session_id=session_id)
+        
+        if not docs:
+            print(f"No documents found for session: {session_id}")
+            context = "No documents found in your current session. Please upload relevant PDF documents first."
+        else:
+            context = "\n\n".join(doc.page_content for doc in docs)
+        
+        print(f"\n\n\n\n\nQUESTION: {question}\n\n\n\n\nCONTEXT: {context}\n\n\n\n\n")
+        return {
+            "context": context,
+            "question": question
+        }
 
-def get_chain() -> Runnable:
-    """Return a chain that generates jokes based on a topic."""
-    prompt = ChatPromptTemplate.from_template("tell me a joke about {topic}")
-    model = ChatOllama(model="llama3.2").bind_tools([Joke])
-    parser = JsonOutputParser(pydantic_object=Joke)
-    return prompt | model # | parser
+    def get_rag_chain(self) -> Runnable:
+        """Create and return the RAG chain for question answering."""
+        prompt = ChatPromptTemplate.from_template("""
+            <|begin_of_text|><|start_header_id|>system<|end_header_id|> 
+            You are an assistant for question-answering tasks. Use the following pieces 
+            of retrieved context to answer the question. 
+            If you don't know the answer, just say that you don't know. 
+            Use three sentences maximum and keep the answer concise 
+            <|eot_id|><|start_header_id|>user<|end_header_id|> 
+                                                  
+            Question: {question} 
+                                                  
+            Context: {context} 
+                                                  
+            Answer: <|eot_id|><|start_header_id|>assistant<|end_header_id|>
+        """)
+        
+        return (
+            RunnableLambda(self._get_context)
+            | prompt
+            | ChatOllama(model=self.model_name)
+        )
+        
+    def ask(self, question: str, session_id: Optional[str] = None) -> str:
+        """Process a question and return an answer using the RAG chain."""
+        chain = self.get_rag_chain()
+        return chain.invoke({"question": question, "session_id": session_id})
+
+
+# For backward compatibility
+def get_pdf_rag_chain() -> Runnable:
+    """Legacy function that creates a PDFAssistant and returns its RAG chain."""
+    assistant = PDFAssistant()
+    return assistant.get_rag_chain()

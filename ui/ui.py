@@ -165,6 +165,7 @@ def main():
 
         with st.spinner("Thinking..."):
             response = send_message(prompt)
+            print("response", response)
             display_chat_message(response)
 
     if not st.session_state.documents:
