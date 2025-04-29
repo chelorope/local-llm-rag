@@ -118,10 +118,8 @@ Note: Make sure you have Ollama installed and running locally with your desired 
 
 - `api/`: FastAPI backend service
 
-  - `src/`: Source code for the API components
-  - `documents/`: Storage location for uploaded PDFs
   - `config/`: Configuration settings
-  - `chroma_langchain_db/`: Vector database storage
+  - `src/`: Source code for the API components
 
 - `ui/`: Streamlit front-end application
 
