@@ -115,6 +115,14 @@ def display_chat_message(message: Dict[str, Any]):
         with st.chat_message("assistant"):
             st.write(message["content"])
 
+def clear_conversation():
+    response = requests_session.delete(f"{API_URL}/messages")
+    if response.status_code == 200:
+        st.session_state.messages = []
+
+if not "documents_fetched" in st.session_state and "first_run" in st.session_state:
+    st.session_state.documents_fetched = True
+    st.session_state.documents = fetch_documents()
 
 def main():
     """Main function to run the Streamlit app."""
@@ -122,13 +130,14 @@ def main():
     with st.sidebar:
         st.header("Document Management")
         st.subheader("Upload Document")
-        uploaded_file = st.file_uploader("Choose a PDF file", type=["pdf"], key="file_uploader")
+        uploaded_file = st.file_uploader("Choose a PDF file", type=["pdf"], key=f"file_uploader_{st.session_state.get('upload_key', 0)}")
         if uploaded_file is not None:
             if st.button("Upload"):
                 with st.spinner("Uploading and processing document..."):
                     success = upload_document(uploaded_file)
                     if success:
                         st.session_state.documents = fetch_documents()
+                        st.session_state.upload_key = st.session_state.get('upload_key', 0) + 1
                         st.rerun()
 
         st.subheader("Available Documents")
@@ -155,8 +164,7 @@ def main():
 
         st.subheader("Conversation")
         if st.button("Start New Conversation", use_container_width=True):
-            st.session_state.messages = []
-            st.session_state.conversation_id = None
+            clear_conversation()
             st.rerun()
 
     st.header("Chat with your Documents")

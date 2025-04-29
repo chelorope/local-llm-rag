@@ -2,36 +2,33 @@ from typing import Annotated
 from fastapi import FastAPI, HTTPException, UploadFile, Header, status
 from pydantic import BaseModel
 from pathlib import Path
-from config.settings import DOCUMENTS_DIR
 
-from src.file_handler import FileHandler
-from src.vector_store import VectorStore
-from src.document_store import DocumentStore
-from src.assistant import PDFAssistant
+from src.factories import ComponentFactory
+from config.settings import settings
 
 class ChatRequest(BaseModel):
     message: str
 
 app = FastAPI(title="PDF Assistant API")
 
-file_handler = FileHandler(DOCUMENTS_DIR)
-vector_store = VectorStore(persist_directory="./chroma_langchain_db")
-document_store = DocumentStore()
-assistant = PDFAssistant()
+file_handler = ComponentFactory.create_file_handler()
+vector_store = ComponentFactory.create_vector_store()
+document_store = ComponentFactory.create_document_store()
+assistant = ComponentFactory.create_assistant()
+document_processor = ComponentFactory.create_document_processor()
+
+SUPPORTED_FILE_EXTENSION = "pdf"
 
 @app.post("/documents", status_code=status.HTTP_201_CREATED)
 async def post_documents(file: UploadFile, session_id: Annotated[str | None, Header()] = None):
-    if not file.filename.endswith('.pdf'):
+    if not file.filename.endswith(SUPPORTED_FILE_EXTENSION):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
     
     content = await file.read()
-    file_path = await file_handler.save_file(content, extension="pdf")
+    file_path = await file_handler.save_file(content, extension=SUPPORTED_FILE_EXTENSION)
+    document_splits = await document_processor.process(file_path, session_id)
+    splits_ids = await vector_store.add_document(document_splits)
 
-    # Add document to vector store
-    splits_ids = await vector_store.add_document(file_path, session_id=session_id)
-    print(f"Document splits: {splits_ids}")
-
-    # Add document to MongoDB through DocumentStore
     document_id = document_store.add_document(
         file_path=file_path,
         filename=file.filename,
@@ -39,7 +36,7 @@ async def post_documents(file: UploadFile, session_id: Annotated[str | None, Hea
         session_id=session_id
     )
     
-    return {"message": "Document uploaded successfully", "id": document_id}, 201
+    return {"message": "Document uploaded successfully", "id": document_id}
     
 @app.delete("/documents")
 async def delete_documents(session_id: Annotated[str | None, Header()] = None):
@@ -48,10 +45,10 @@ async def delete_documents(session_id: Annotated[str | None, Header()] = None):
     
     for doc in documents:
         file_path = Path(doc["file_path"])
-        file_handler.delete_file(file_path)
+        await file_handler.delete_file(file_path)
         
         if "document_splits" in doc:
-            vector_store.delete_documents(doc["document_splits"])
+            await vector_store.delete_documents(doc["document_splits"])
     
     deleted_count = document_store.delete_documents(session_id)
     
@@ -75,11 +72,10 @@ async def delete_messages(session_id: Annotated[str | None, Header()] = None):
 
 @app.post("/chat")
 async def chat(request: ChatRequest, session_id: Annotated[str | None, Header()] = None):
-    assistante_message = assistant.ask(request.message, session_id)
-    print("response", assistante_message)
-    return assistante_message
+    assistant_message = await assistant.ask(request.message, session_id)
+    return assistant_message
     
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host=settings.api_host, port=settings.api_port)

@@ -1,6 +1,8 @@
 import uuid
 import os
+import aiofiles
 from pathlib import Path
+from typing import List
 
 class FileHandler:
     def __init__(self, documents_dir: str):
@@ -10,20 +12,23 @@ class FileHandler:
     async def save_file(self, file_content: bytes, extension: str = "pdf") -> Path:
         file_path = self.documents_dir / f"{uuid.uuid4().hex}.{extension}"
         
-        with open(file_path, "wb") as f:
-            f.write(file_content)
+        async with aiofiles.open(file_path, "wb") as f:
+            await f.write(file_content)
             
         return file_path
     
-    def delete_file(self, file_path: Path) -> bool:
+    async def delete_file(self, file_path: Path) -> bool:
         if file_path.exists():
-            file_path.unlink()
-            return True
+            try:
+                file_path.unlink()
+                return True
+            except Exception:
+                return False
         return False
     
-    def delete_files(self, file_paths: list[Path]) -> list[Path]:
+    async def delete_files(self, file_paths: List[Path]) -> List[Path]:
         deleted_files = []
         for file_path in file_paths:
-            if self.delete_file(file_path):
+            if await self.delete_file(file_path):
                 deleted_files.append(file_path)
         return deleted_files 

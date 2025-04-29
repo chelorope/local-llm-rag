@@ -1,12 +1,11 @@
 from pymongo import MongoClient
 from typing import List, Dict, Any, Optional
 from pathlib import Path
-from config.settings import MONGO_URI, MONGO_DB_NAME, MONGO_DOCUMENTS_COLLECTION_NAME
 
 class DocumentStore:
-    def __init__(self, mongo_uri: str = MONGO_URI, 
-                 db_name: str = MONGO_DB_NAME,
-                 collection_name: str = MONGO_DOCUMENTS_COLLECTION_NAME):
+    def __init__(self, mongo_uri: str, 
+                 db_name: str,
+                 collection_name: str):
         """Initialize MongoDB connection and collection"""
         self.mongo_client = MongoClient(mongo_uri)
         self.db = self.mongo_client[db_name]
