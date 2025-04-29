@@ -19,7 +19,7 @@ session_id = cookie_controller.get("session_id")
 if "first_run" in st.session_state and session_id == None:
     session_id = uuid4().hex
     cookie_controller.set("session_id", session_id)
-
+print("session_id", session_id)
 requests_session = requests.Session()
 requests_session.headers.update(
     { "session-id": session_id }
@@ -82,7 +82,8 @@ def get_messages():
     response = requests_session.get(f"{API_URL}/messages")
     if response.status_code == 200:
         data = response.json()
-        return [{"content": d["content"], "role": d["role"]} for d in data["messages"]]
+        print("DATA", data)
+        return [{"content": d["content"], "type": d["type"]} for d in data["messages"]]
 
 
 def send_message(message: str) -> Optional[Dict[str, Any]]:
@@ -107,14 +108,13 @@ def send_message(message: str) -> Optional[Dict[str, Any]]:
 
 def display_chat_message(message: Dict[str, Any]):
     """Display a chat message with the appropriate styling."""
-    if message["role"] == "user":
+    if message["type"] == "human":
         with st.chat_message("user"):
             st.write(message["content"])
     else:
         with st.chat_message("assistant"):
             st.write(message["content"])
 
-st.session_state.documents = fetch_documents()
 
 def main():
     """Main function to run the Streamlit app."""
@@ -165,7 +165,7 @@ def main():
         display_chat_message(message)
 
     if prompt := st.chat_input("Ask a question about your documents..."):
-        user_message = {"role": "user", "content": prompt}
+        user_message = {"type": "human", "content": prompt}
         display_chat_message(user_message)
 
         with st.spinner("Thinking..."):

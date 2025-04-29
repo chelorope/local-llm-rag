@@ -7,7 +7,9 @@ from langchain.schema.runnable import Runnable, RunnableLambda
 from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 from src.vector_store import VectorStore
-
+from langchain_mongodb import MongoDBChatMessageHistory
+from config.settings import MONGO_URI, MONGO_DB_NAME
+from langchain.schema import AIMessage, HumanMessage, BaseMessage
 
 class PDFAssistant:
     def __init__(self, persist_directory="./chroma_langchain_db", model_name="llama3.2"):
@@ -35,7 +37,7 @@ class PDFAssistant:
             "question": question
         }
 
-    def get_rag_chain(self) -> Runnable:
+    def _get_rag_chain(self) -> Runnable:
         """Create and return the RAG chain for question answering."""
         prompt = ChatPromptTemplate.from_template("""
             <|begin_of_text|><|start_header_id|>system<|end_header_id|> 
@@ -60,12 +62,33 @@ class PDFAssistant:
         
     def ask(self, question: str, session_id: Optional[str] = None) -> str:
         """Process a question and return an answer using the RAG chain."""
-        chain = self.get_rag_chain()
-        return chain.invoke({"question": question, "session_id": session_id})
-
-
-# For backward compatibility
-def get_pdf_rag_chain() -> Runnable:
-    """Legacy function that creates a PDFAssistant and returns its RAG chain."""
-    assistant = PDFAssistant()
-    return assistant.get_rag_chain()
+        message_history = MongoDBChatMessageHistory(
+            session_id=session_id,
+            connection_string=MONGO_URI,
+            database_name=MONGO_DB_NAME,
+            collection_name="message_history"
+        )
+        message_history.add_message(HumanMessage(content=question))
+        chain = self._get_rag_chain()
+        response = chain.invoke({"question": question, "session_id": session_id}).content
+        assistant_message = AIMessage(content=response)
+        message_history.add_message(assistant_message)
+        return assistant_message
+    
+    def get_message_history(self, session_id: str) -> list[BaseMessage]:
+        message_history = MongoDBChatMessageHistory(
+            session_id=session_id,
+            connection_string=MONGO_URI,
+            database_name=MONGO_DB_NAME,
+            collection_name="message_history"
+        )
+        return message_history.messages
+    
+    def delete_message_history(self, session_id: str):
+        message_history = MongoDBChatMessageHistory(
+            session_id=session_id,
+            connection_string=MONGO_URI,
+            database_name=MONGO_DB_NAME,
+            collection_name="message_history"
+        )
+        message_history.clear()
