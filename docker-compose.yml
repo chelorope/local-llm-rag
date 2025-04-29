@@ -3,14 +3,14 @@ version: "3.8"
 services:
   api:
     build:
-      context: .
-      dockerfile: api/Dockerfile
+      context: ./api
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:
-      - ./api:/app
-      - ./documents:/app/documents
-      - ./chroma_langchain_db:/app/chroma_langchain_db
+      #   - ./api/src:/app/src
+      - ./api/documents:/app/documents
+      - ./api/chroma_langchain_db:/app/chroma_langchain_db
     environment:
       - MONGO_URI=mongodb://mongodb:27017
       - MONGO_DB_NAME=documents_db
@@ -25,12 +25,12 @@ services:
 
   ui:
     build:
-      context: .
-      dockerfile: ui/Dockerfile
+      context: ./ui
+      dockerfile: Dockerfile
     ports:
       - "8501:8501"
-    volumes:
-      - ./ui:/app
+    # volumes:
+    # - ./ui/ui.py:/app/ui.py
     environment:
       - API_URL=http://api:8000
     depends_on:
