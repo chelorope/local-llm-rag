@@ -5,13 +5,18 @@ from typing import Optional, List
 from src.vector_store import VectorStore
 from langchain_mongodb import MongoDBChatMessageHistory
 from langchain.schema import AIMessage, HumanMessage, BaseMessage
+from config.settings import settings
+import os
 
 class PDFAssistant:
     def __init__(self, persist_directory: str, model_name: str, 
                  mongo_uri: str, mongo_db_name: str, mongo_message_history_collection: str):
         """Initialize the PDF Assistant with vector store and model configuration."""
         self.vector_store = VectorStore(persist_directory=persist_directory)
-        self.model = ChatOllama(model=model_name)
+        self.model = ChatOllama(
+            model=model_name,
+            base_url=f"http://{settings.ollama_host}:{settings.ollama_port}"
+        )
         self.mongo_uri = mongo_uri
         self.mongo_db_name = mongo_db_name
         self.mongo_message_history_collection = mongo_message_history_collection

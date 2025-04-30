@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     # LLM Settings
     embedding_model: str = Field(default="nomic-embed-text")
     llm_model: str = Field(default="llama3.2")
+    ollama_host: str = Field(default="localhost")
+    ollama_port: str = Field(default="11434")
     
     # API Settings
     api_host: str = Field(default="0.0.0.0")

@@ -3,12 +3,15 @@ from langchain_ollama import OllamaEmbeddings
 from langchain.schema import Document
 from typing import List, Optional
 from chromadb import HttpClient
+from config.settings import settings
 
 class VectorStore:
     def __init__(self, persist_directory: str, collection_name: str = "pdfs", model_name: str = "nomic-embed-text",
                  chroma_client_type: str = "persistent", chroma_host: str = "0.0.0.0", chroma_port: int = 3020):
-
-        self.embeddings = OllamaEmbeddings(model=model_name)
+        self.embeddings = OllamaEmbeddings(
+            model=model_name,
+            base_url=f"http://{settings.ollama_host}:{settings.ollama_port}"
+        )
         
         if chroma_client_type == "http":
             chroma_client = HttpClient(host=chroma_host, port=chroma_port)
@@ -16,7 +19,6 @@ class VectorStore:
                 client=chroma_client,
                 collection_name=collection_name,
                 embedding_function=self.embeddings,
-
             )
         elif chroma_client_type == "persistent":
             self.vector_store = Chroma(
